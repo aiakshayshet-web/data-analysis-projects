@@ -11,8 +11,8 @@ df = pd.read_csv(HERE / "scores.csv")
 def md_table(frame: pd.DataFrame) -> str:
     cols = list(frame.columns)
     lines = ["| " + " | ".join(cols) + " |", "| " + " | ".join(["---"] * len(cols)) + " |"]
-    for _, row in frame.iterrows():
-        lines.append("| " + " | ".join(str(row[c]) for c in cols) + " |")
+    for row in frame.itertuples(index=False):
+        lines.append("| " + " | ".join(str(v) for v in row) + " |")
     return "\n".join(lines)
 
 by_subject = df.groupby("subject")["score"].agg(mean="mean", median="median", min="min", max="max").round(1).reset_index()

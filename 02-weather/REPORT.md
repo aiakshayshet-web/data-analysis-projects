@@ -1,20 +1,23 @@
-# Weather analysis
+# Weather analysis: three Australian stations
 
-Sample daily weather for London, Manchester, Birmingham, and Edinburgh in 2025 (1460 rows).
+Daily weather for Wollongong, Hobart, and Uluru: 296 usable days (2008-2020). Source: `weather_australia` (a sub-sample of the BoM data in the R `rattle` package, via the R `bayesrules` package). See `SOURCE.md`.
 
-## City summary
+Only about 100 days per station are included, so treat monthly patterns as indicative.
 
-| city | avg_temp | total_rain | avg_humidity |
-| --- | --- | --- | --- |
-| London | 13.0 | 637.4 | 74.3 |
-| Edinburgh | 11.9 | 644.0 | 73.8 |
-| Manchester | 11.7 | 706.5 | 74.5 |
-| Birmingham | 11.6 | 670.5 | 74.3 |
+## Station summary
+
+| location | days | avg_max_c | avg_min_c | mean_rain_mm | rainy_day_pct |
+| --- | --- | --- | --- | --- | --- |
+| Uluru | 97 | 31.2 | 14.6 | 0.52 | 12.4 |
+| Wollongong | 100 | 21.2 | 14.4 | 1.71 | 24.0 |
+| Hobart | 99 | 17.5 | 9.0 | 1.94 | 44.4 |
+
+Rainy day = any recorded rainfall above 0 mm.
 
 ## Highlights
 
-- Warmest city on average: **London** (13.0°C)
-- Hottest day: **2025-07-14** in London (24.2°C)
-- Wettest day: **2025-10-28** in London (8.4 mm)
+- Warmest station on average (max temp): **Uluru** (31.2°C)
+- Hottest sampled day: **Uluru**, 45.4°C (year 2019, month 1)
+- Wettest sampled day: **Wollongong**, 36.2 mm (year 2018, month 2)
 
 See `weather_temps.png` and `weather_rain.png`.

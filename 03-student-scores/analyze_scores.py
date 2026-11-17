@@ -1,4 +1,9 @@
-"""Student score analysis by subject and year group."""
+"""Project STAR analysis: reading and math scores by grade and class type.
+
+Project STAR randomly assigned students to small classes, regular classes, or
+regular classes with a teacher's aide in kindergarten. Scores are scaled test
+scores (not percentages).
+"""
 
 from pathlib import Path
 
@@ -6,7 +11,14 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 HERE = Path(__file__).parent
-df = pd.read_csv(HERE / "scores.csv")
+df = pd.read_csv(HERE / "star_scores.csv")
+GRADE_ORDER = ["K", "1", "2", "3"]
+CLASS_ORDER = ["small", "regular", "regular+aide"]
+
+# Only students with a recorded kindergarten class type are in the experiment.
+assigned = df.dropna(subset=["class_type"]).copy()
+assigned["grade"] = pd.Categorical(assigned["grade"], GRADE_ORDER, ordered=True)
+
 
 def md_table(frame: pd.DataFrame) -> str:
     cols = list(frame.columns)
@@ -15,52 +27,76 @@ def md_table(frame: pd.DataFrame) -> str:
         lines.append("| " + " | ".join(str(v) for v in row) + " |")
     return "\n".join(lines)
 
-by_subject = df.groupby("subject")["score"].agg(mean="mean", median="median", min="min", max="max").round(1).reset_index()
-by_year = df.groupby("year")["score"].agg(mean="mean", students="nunique").round(1).reset_index()
-pass_mark = 50
-df["passed"] = df["score"] >= pass_mark
-pass_rate = df["passed"].mean() * 100
-top = df.groupby(["student_id", "name"], as_index=False)["score"].mean().sort_values("score", ascending=False).head(5).round(1)
 
-fig, ax = plt.subplots(figsize=(7, 4))
-ax.bar(by_subject["subject"], by_subject["mean"], color="#dc2626")
-ax.set_ylim(0, 100)
-ax.set_title("Average score by subject")
-ax.set_ylabel("Mean score")
+students = assigned["student_id"].nunique()
+by_grade = (
+    assigned.groupby("grade", observed=True)
+    .agg(students=("student_id", "nunique"), reading_mean=("reading", "mean"), math_mean=("math", "mean"))
+    .round(1)
+    .reset_index()
+)
+by_class = (
+    assigned.groupby(["class_type", "grade"], observed=True)[["reading", "math"]]
+    .mean()
+    .round(1)
+    .reset_index()
+)
+by_class_wide = by_class.pivot(index="class_type", columns="grade", values="math").reindex(CLASS_ORDER)
+by_class_wide.columns = [f"math_{c}" for c in by_class_wide.columns]
+by_class_wide = by_class_wide.round(1).reset_index()
+
+k3 = assigned[assigned["grade"] == "K"].groupby("class_type")["math"].mean().reindex(CLASS_ORDER)
+
+fig, ax = plt.subplots(figsize=(9, 4.5))
+width = 0.25
+x = range(len(GRADE_ORDER))
+for i, ctype in enumerate(CLASS_ORDER):
+    part = by_class[by_class["class_type"] == ctype].set_index("grade").reindex(GRADE_ORDER)
+    ax.bar([xi + (i - 1) * width for xi in x], part["math"], width, label=ctype)
+ax.set_xticks(list(x))
+ax.set_xticklabels(GRADE_ORDER)
+ax.set_xlabel("Grade")
+ax.set_ylabel("Mean math scaled score")
+ax.set_title("Math scores by grade and kindergarten class type")
+ax.set_ylim(400, 650)
+ax.legend()
 fig.tight_layout()
-fig.savefig(HERE / "scores_by_subject.png", dpi=140)
+fig.savefig(HERE / "scores_by_class.png", dpi=140)
 plt.close()
 
-fig, ax = plt.subplots(figsize=(6, 4))
-ax.hist(df["score"], bins=15, color="#f59e0b", edgecolor="white")
-ax.set_title("Score distribution")
-ax.set_xlabel("Score")
+fig, ax = plt.subplots(figsize=(7, 4.5))
+ax.hist(assigned["reading"].dropna(), bins=30, alpha=0.6, label="Reading", color="#dc2626")
+ax.hist(assigned["math"].dropna(), bins=30, alpha=0.6, label="Math", color="#2563eb")
+ax.set_title("Score distribution (all grades)")
+ax.set_xlabel("Scaled score")
 ax.set_ylabel("Count")
+ax.legend()
 fig.tight_layout()
 fig.savefig(HERE / "scores_hist.png", dpi=140)
 plt.close()
 
-report = f"""# Student scores analysis
+gap = k3["small"] - k3["regular"]
+report = f"""# Student scores analysis: Project STAR
 
-{df['student_id'].nunique()} students across years 10–12, four subjects, {len(df)} scores.
+{students} students in the class-size experiment, with reading and math scores in kindergarten through grade 3 ({len(assigned)} student-grade records). Source: Project STAR public-access data (Tennessee, 1985-1989), via the R `AER` package. See `SOURCE.md`.
 
-## By subject
+Scores are scaled test scores. Students with no recorded class type are excluded.
 
-{md_table(by_subject)}
+## By grade
 
-## By year group
+{md_table(by_grade)}
 
-{md_table(by_year)}
+## Mean math score by class type and grade
+
+{md_table(by_class_wide)}
 
 ## Highlights
 
-- Pass rate (≥ {pass_mark}): **{pass_rate:.1f}%**
-- Strongest subject (mean): **{by_subject.loc[by_subject['mean'].idxmax(), 'subject']}**
-- Top 5 students by average:
+- Kindergarten math, small classes minus regular classes: **{gap:+.1f}** points (raw difference of means; no significance test)
+- Strongest grade for reading: **{by_grade.loc[by_grade['reading_mean'].idxmax(), 'grade']}** ({by_grade['reading_mean'].max()})
+- Strongest grade for math: **{by_grade.loc[by_grade['math_mean'].idxmax(), 'grade']}** ({by_grade['math_mean'].max()})
 
-{md_table(top)}
-
-See `scores_by_subject.png` and `scores_hist.png`.
+See `scores_by_class.png` and `scores_hist.png`.
 """
 (HERE / "REPORT.md").write_text(report)
 print("scores done")
